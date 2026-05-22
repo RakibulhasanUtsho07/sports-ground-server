@@ -37,17 +37,15 @@ async function run() {
         res.status(500).send({ message: "Server error occurred" });
       }
     });
-    // app.post('/grounds', async (req, res)=>{
-
-    // })
-    app.patch('/grounds:id', async(req, res)=>{
-      const {id} = await req.params
+    
+    app.patch('/grounds/:id', async(req, res)=>{
+      const {id} =  req.params
       const updatedData = req.body
-      const result = groundCollection.updateOne(
+      const result = await groundCollection.updateOne(
         {_id: new ObjectId(id)},
         {$set: updatedData}
       )
-      res.json()
+      res.json(result)
     })
     app.post('/grounds', async(req, res)=>{
       const ground = req.body
