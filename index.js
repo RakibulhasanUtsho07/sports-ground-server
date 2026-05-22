@@ -28,19 +28,46 @@ async function run() {
     const groundCollection = db.collection("grounds");
 
     app.get("/grounds", async (req, res) => {
-      const result = await groundCollection.find().toArray();
-      res.send(result);
-    });
-    app.get("/grounds/:id", async (req, res) => {
-        const {id} = await req.params
-      const result = await groundCollection.findOne({
-        _id: new ObjectId(id)
+      try {
+        const result = await groundCollection.find().toArray();
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+        
+        res.status(500).send({ message: "Server error occurred" });
       }
-
-      )
-      res.send(result);
     });
+    // app.post('/grounds', async (req, res)=>{
 
+    // })
+    app.patch('/grounds:id', async(req, res)=>{
+      const {id} = await req.params
+      const updatedData = req.body
+      const result = groundCollection.updateOne(
+        {_id: new ObjectId(id)},
+        {$set: updatedData}
+      )
+      res.json()
+    })
+    app.post('/grounds', async(req, res)=>{
+      const ground = req.body
+     const result = groundCollection.insertOne(ground)
+     console.log(ground)
+      res.send(result)
+    })
+    app.get("/grounds/:id", async (req, res) => {
+      try {
+        const { id } = await req.params;
+        const result = await groundCollection.findOne({
+          _id: new ObjectId(id),
+        });
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+
+        res.status(500).send({ message: "Server error occurred" });
+      }
+    });
 
     await client.db("admin").command({ ping: 1 });
     console.log(
