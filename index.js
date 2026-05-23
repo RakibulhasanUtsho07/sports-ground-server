@@ -26,6 +26,7 @@ async function run() {
     await client.connect();
     const db = client.db("matchday");
     const groundCollection = db.collection("grounds");
+    const bookingsCollection = db.collection("bookings");
 
     app.get("/grounds", async (req, res) => {
       try {
@@ -33,26 +34,58 @@ async function run() {
         res.send(result);
       } catch (error) {
         console.error(error);
-        
+
         res.status(500).send({ message: "Server error occurred" });
       }
     });
-    
-    app.patch('/grounds/:id', async(req, res)=>{
-      const {id} =  req.params
-      const updatedData = req.body
+    app.get("/bookings", async (req, res) => {
+      try {
+        const result = await bookingsCollection.find().toArray();
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+
+        res.status(500).send({ message: "Server error occurred" });
+      }
+    });
+
+    app.patch("/grounds/:id", async (req, res) => {
+      const { id } = req.params;
+      const updatedData = req.body;
       const result = await groundCollection.updateOne(
-        {_id: new ObjectId(id)},
-        {$set: updatedData}
-      )
-      res.json(result)
-    })
-    app.post('/grounds', async(req, res)=>{
-      const ground = req.body
-     const result = groundCollection.insertOne(ground)
-     console.log(ground)
-      res.send(result)
-    })
+        { _id: new ObjectId(id) },
+        { $set: updatedData },
+      );
+      res.json(result);
+    });
+    app.post("/grounds", async (req, res) => {
+      const ground = req.body;
+      const result = groundCollection.insertOne(ground);
+      console.log(ground);
+      res.send(result);
+    });
+    app.post("/bookings", async (req, res) => {
+      try {
+        const booking = req.body;
+        const isExist = await bookingsCollection.findOne({
+          userId: booking.userId,
+          groundId: booking.groundId,
+        });
+        if (isExist) {
+          return res.status(400).json({
+            success: false,
+            message: "The ground is already exist on bookings",
+          });
+        }
+
+        const result = await bookingsCollection.insertOne(booking);
+        res.status(201).json({ success: true, ...result });
+      } catch (error) {
+        console.error("Booking error:", error);
+        res.status(500).json({ message: "Internal Server Error" });
+      }
+    });
+ 
     app.get("/grounds/:id", async (req, res) => {
       try {
         const { id } = await req.params;
