@@ -2,6 +2,7 @@ const express = require("express");
 const dotenv = require("dotenv");
 const cors = require("cors");
 
+
 const app = express();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
@@ -85,11 +86,23 @@ async function run() {
         res.status(500).json({ message: "Internal Server Error" });
       }
     });
-       app.delete("/bookings/:id", async(req, res)=>{
-      const {id} =await  req.params
-      const result = await bookingsCollection.deleteOne({_id: new ObjectId(id)})
-      res.json(result)
-    })
+    app.delete("/bookings/:id", async (req, res) => {
+      try {
+        const { id } = req.params;
+        if (!ObjectId.isValid(id)) {
+          return res.status(400).json({ error: "Invalid Booking ID format" });
+        }
+        const result = await bookingsCollection.deleteOne({
+          _id: new ObjectId(id),
+        });
+        res.json(result);
+      } catch (error) {
+        console.error("Database Delete Error:", error);
+        res
+          .status(500)
+          .json({ error: "Internal Server Error", details: error.message });
+      }
+    });
     app.get("/grounds/:id", async (req, res) => {
       try {
         const { id } = await req.params;
