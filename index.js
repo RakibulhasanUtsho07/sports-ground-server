@@ -85,7 +85,11 @@ async function run() {
         res.status(500).json({ message: "Internal Server Error" });
       }
     });
- 
+       app.delete("/bookings/:id", async(req, res)=>{
+      const {id} =await  req.params
+      const result = await bookingsCollection.deleteOne({_id: new ObjectId(id)})
+      res.json(result)
+    })
     app.get("/grounds/:id", async (req, res) => {
       try {
         const { id } = await req.params;
