@@ -5,6 +5,7 @@ const cors = require("cors");
 
 const app = express();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const { createRemoteJWKSet, jwtVerify } = require("jose-cjs");
 
 app.use(cors());
 app.use(express.json());
@@ -15,6 +16,7 @@ app.get("/", (req, res) => {
   res.send("Server is running");
 });
 
+
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -22,12 +24,45 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   },
 });
+const JWKS = createRemoteJWKSet(
+  new URL(`${process.env.CLIENT_URL}/api/auth/jwks`)
+)
+
+const verifyToken = async(req, res, next)=>{
+      const header = req.headers.authorization
+      
+      if(!header){
+       return res.status(401).send({ message: "Unauthorized" });
+      }
+      const token = header.split(" ")[1]
+      console.log(token, 'token')
+      if(!token){
+       return res.status(401).send({ message: "Unauthorized" });
+      }
+      try {
+     
+      const {payload} = await jwtVerify(token, JWKS)
+     req.user= payload
+      next() 
+      
+    
+    
+    }
+    
+   catch (error) {
+    console.log("JWT Verification Details Error:", error.message);
+   return res.status(403).json({message : "forbidden"})
+  }
+
+
+    };
 async function run() {
   try {
-    await client.connect();
+    // await client.connect();
     const db = client.db("matchday");
     const groundCollection = db.collection("grounds");
     const bookingsCollection = db.collection("bookings");
+    
 
     app.get("/grounds", async (req, res) => {
       try {
@@ -39,7 +74,7 @@ async function run() {
         res.status(500).send({ message: "Server error occurred" });
       }
     });
-    app.get("/bookings", async (req, res) => {
+    app.get("/bookings",verifyToken, async (req, res) => {
       try {
         const result = await bookingsCollection.find().toArray();
         res.send(result);
@@ -103,7 +138,7 @@ async function run() {
           .json({ error: "Internal Server Error", details: error.message });
       }
     });
-    app.get("/grounds/:id", async (req, res) => {
+    app.get("/grounds/:id",verifyToken,  async (req, res) => {
       try {
         const { id } = await req.params;
         const result = await groundCollection.findOne({
