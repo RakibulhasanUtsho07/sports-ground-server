@@ -102,7 +102,7 @@ async function run() {
     app.post("/grounds", async (req, res) => {
       const ground = req.body;
       console.log(ground, "form data")
-      const result = groundCollection.insertOne(ground);
+      const result = await groundCollection.insertOne(ground);
       console.log(ground);
       res.send(result);
     });
