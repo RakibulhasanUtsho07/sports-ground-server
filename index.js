@@ -2,7 +2,6 @@ const express = require("express");
 const dotenv = require("dotenv");
 const cors = require("cors");
 
-
 const app = express();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const { createRemoteJWKSet, jwtVerify } = require("jose-cjs");
@@ -16,7 +15,6 @@ app.get("/", (req, res) => {
   res.send("Server is running");
 });
 
-
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -25,44 +23,35 @@ const client = new MongoClient(uri, {
   },
 });
 const JWKS = createRemoteJWKSet(
-  new URL(`${process.env.CLIENT_URL}/api/auth/jwks`)
-)
+  new URL(`${process.env.CLIENT_URL}/api/auth/jwks`),
+);
 
-const verifyToken = async(req, res, next)=>{
-      const header = req.headers.authorization
-      
-      if(!header){
-       return res.status(401).send({ message: "Unauthorized" });
-      }
-      const token = header.split(" ")[1]
-      console.log(token, 'token')
-      if(!token){
-       return res.status(401).send({ message: "Unauthorized" });
-      }
-      try {
-     
-      const {payload} = await jwtVerify(token, JWKS)
-     req.user= payload
-      next() 
-      
-    
-    
-    }
-    
-   catch (error) {
-    console.log("JWT Verification Details Error:", error.message);
-   return res.status(403).json({message : "forbidden"})
+const verifyToken = async (req, res, next) => {
+  const header = req.headers.authorization;
+
+  if (!header) {
+    return res.status(401).send({ message: "Unauthorized" });
   }
-
-
-    };
+  const token = header.split(" ")[1];
+  console.log(token, "token");
+  if (!token) {
+    return res.status(401).send({ message: "Unauthorized" });
+  }
+  try {
+    const { payload } = await jwtVerify(token, JWKS);
+    req.user = payload.user || payload;
+    next();
+  } catch (error) {
+    console.log("JWT Verification Details Error:", error.message);
+    return res.status(403).json({ message: "forbidden" });
+  }
+};
 async function run() {
   try {
-    // await client.connect();
+    await client.connect();
     const db = client.db("matchday");
     const groundCollection = db.collection("grounds");
     const bookingsCollection = db.collection("bookings");
-    
 
     app.get("/grounds", async (req, res) => {
       try {
@@ -74,10 +63,24 @@ async function run() {
         res.status(500).send({ message: "Server error occurred" });
       }
     });
-    app.get("/bookings",verifyToken, async (req, res) => {
+    app.get("/bookings", verifyToken, async (req, res) => {
       try {
-        const result = await bookingsCollection.find().toArray();
-        res.send(result);
+        const loggedInUserId = req.user?.id || req.user?._id;
+        console.log(loggedInUserId,"hi");
+
+        if (!loggedInUserId) {
+          return res
+            .status(401)
+            .send({
+              message: "Unauthorized: User identity could not be verified",
+            });
+        }
+
+        const query = {
+          userId: loggedInUserId,
+        };
+        const result = await bookingsCollection.find(query).toArray();
+        res.json(result);
       } catch (error) {
         console.error(error);
 
@@ -88,6 +91,8 @@ async function run() {
     app.patch("/grounds/:id", async (req, res) => {
       const { id } = req.params;
       const updatedData = req.body;
+      console.log(updatedData)
+      
       const result = await groundCollection.updateOne(
         { _id: new ObjectId(id) },
         { $set: updatedData },
@@ -96,6 +101,7 @@ async function run() {
     });
     app.post("/grounds", async (req, res) => {
       const ground = req.body;
+      console.log(ground, "form data")
       const result = groundCollection.insertOne(ground);
       console.log(ground);
       res.send(result);
@@ -138,7 +144,7 @@ async function run() {
           .json({ error: "Internal Server Error", details: error.message });
       }
     });
-    app.get("/grounds/:id",verifyToken,  async (req, res) => {
+    app.get("/grounds/:id", verifyToken, async (req, res) => {
       try {
         const { id } = await req.params;
         const result = await groundCollection.findOne({
